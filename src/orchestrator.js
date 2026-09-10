@@ -1,4 +1,5 @@
 import { VidSrcProvider } from './providers/vidsrc.js';
+import { VidSrcBuzzProvider } from './providers/vidsrcbuzz.js';
 import { EmbedSuProvider } from './providers/embedsu.js';
 import { VidLinkProvider } from './providers/vidlink.js';
 import { VidSrcRipProvider } from './providers/vidsrcrip.js';
@@ -6,6 +7,7 @@ import { getProviders, getFromCache, saveToCache, logMetric } from './utils/supa
 
 const PROVIDER_CLASSES = {
   vidsrc: VidSrcProvider,
+  vidsrcbuzz: VidSrcBuzzProvider,
   embedsu: EmbedSuProvider,
   vidlink: VidLinkProvider,
   vidsrcrip: VidSrcRipProvider,
@@ -13,17 +15,15 @@ const PROVIDER_CLASSES = {
 
 function buildProviders(providerRows) {
   const instances = [];
-
   for (const row of providerRows) {
     const ProviderClass = PROVIDER_CLASSES[row.name];
-
     if (!ProviderClass) {
       console.warn(`[!] Provider "${row.name}" existe no banco mas nao tem classe implementada`);
       continue;
     }
-
     const instance = new ProviderClass();
     instance.config = {
+      ...instance.config,
       name: row.name,
       domain: row.domain,
       endpointPattern: row.endpoint_pattern,
@@ -32,10 +32,8 @@ function buildProviders(providerRows) {
       needsClick: row.needs_click,
       timeoutMs: row.timeout_ms || 40000,
     };
-
     instances.push(instance);
   }
-
   return instances;
 }
 
@@ -62,11 +60,7 @@ export async function extractStream(tmdbId, type, season, episode) {
   const providerRows = await getProviders();
 
   if (providerRows.length === 0) {
-    return {
-      success: false,
-      error: 'Nenhum provider ativo no banco de dados',
-      attempts: [],
-    };
+    return { success: false, error: 'Nenhum provider ativo no banco de dados', attempts: [] };
   }
 
   console.log(`[+] ${providerRows.length} provider(s) ativo(s): ${providerRows.map((p) => p.name).join(', ')}`);
@@ -87,7 +81,6 @@ export async function extractStream(tmdbId, type, season, episode) {
         await saveToCache(tmdbId, type, season, episode, name, result.hlsUrl, result.subtitles || [], 24);
         await logMetric(name, tmdbId, type, true, elapsed);
         attempts.push({ provider: name, success: true, elapsed_ms: elapsed });
-
         return {
           success: true,
           provider: name,
