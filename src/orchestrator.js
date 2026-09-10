@@ -1,13 +1,14 @@
 import { VidSrcProvider } from './providers/vidsrc.js';
-import {
-  getProviders,
-  getFromCache,
-  saveToCache,
-  logMetric,
-} from './utils/supabase.js';
+import { EmbedSuProvider } from './providers/embedsu.js';
+import { VidLinkProvider } from './providers/vidlink.js';
+import { VidSrcRipProvider } from './providers/vidsrcrip.js';
+import { getProviders, getFromCache, saveToCache, logMetric } from './utils/supabase.js';
 
 const PROVIDER_CLASSES = {
   vidsrc: VidSrcProvider,
+  embedsu: EmbedSuProvider,
+  vidlink: VidLinkProvider,
+  vidsrcrip: VidSrcRipProvider,
 };
 
 function buildProviders(providerRows) {
@@ -61,7 +62,6 @@ export async function extractStream(tmdbId, type, season, episode) {
   const providerRows = await getProviders();
 
   if (providerRows.length === 0) {
-    console.log('[!] Nenhum provider ativo no banco');
     return {
       success: false,
       error: 'Nenhum provider ativo no banco de dados',
@@ -84,15 +84,8 @@ export async function extractStream(tmdbId, type, season, episode) {
 
       if (result?.hlsUrl) {
         console.log(`[+] ${name} SUCESSO em ${elapsed}ms`);
-
-        await saveToCache(
-          tmdbId, type, season, episode,
-          name, result.hlsUrl, result.subtitles || [],
-          24
-        );
-
+        await saveToCache(tmdbId, type, season, episode, name, result.hlsUrl, result.subtitles || [], 24);
         await logMetric(name, tmdbId, type, true, elapsed);
-
         attempts.push({ provider: name, success: true, elapsed_ms: elapsed });
 
         return {
