@@ -7,10 +7,12 @@
     "start": "node src/index.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "patchright": "^1.40.0",
-    "axios": "^1.7.2",
-    "dotenv": "^16.4.5",
-    "cors": "^2.8.5"
+    "ws": "^8.21.3"
   }
 }
