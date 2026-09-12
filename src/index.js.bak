@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { extractStream } from './orchestrator.js';
-import catalogRoutes from './routes/catalog.js';
+import { getFromCache } from './utils/supabase.js';
 
 const app = express();
 app.use(cors());
@@ -11,42 +11,25 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 // =====================================================
-// ROTA RAIZ
+// ROTA RAIZ (health check)
 // =====================================================
 app.get('/', (req, res) => {
   res.json({
     name: 'Api-alex',
     status: 'online',
     routes: {
-      // Streaming
       filme: '/filmes/:tmdb_id',
       serie: '/series/:tmdb_id',
       serie_temporada: '/series/:tmdb_id/:season',
       serie_episodio: '/series/:tmdb_id/:season/:episode',
       legado: '/extract?tmdb_id=X&type=movie|tv',
-      // Catalogo (listas)
-      trending_movies: '/catalogo/trending/movies?period=day|week',
-      trending_tv: '/catalogo/trending/tv',
-      populares_filmes: '/catalogo/populares/filmes?page=1',
-      populares_series: '/catalogo/populares/series?page=1',
-      top_filmes: '/catalogo/top/filmes',
-      top_series: '/catalogo/top/series',
-      cartaz: '/catalogo/cartaz',
-      em_breve: '/catalogo/em-breve',
-      series_no_ar: '/catalogo/series/no-ar',
-      generos: '/catalogo/generos',
-      genero: '/catalogo/genero/:nome',
-      familia_animacao: '/catalogo/familia-animacao',
-      portugueses: '/catalogo/portugueses',
-      ano: '/catalogo/ano/:ano',
-      // Util
-      warm_cache: '/warm-cache?secret=XXX',
+      warm_cache: '/warm-cache',
     },
   });
 });
 
 // =====================================================
-// STREAMING
+// ROTAS AMIGAVEIS
 // =====================================================
 app.get('/filmes/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
@@ -92,6 +75,9 @@ app.get('/series/:tmdb_id/:season/:episode', async (req, res) => {
   }
 });
 
+// =====================================================
+// ROTA ANTIGA (compatibilidade)
+// =====================================================
 app.get('/extract', async (req, res) => {
   const tmdbId = req.query.tmdb_id;
   const type = req.query.type === 'tv' ? 'tv' : 'movie';
@@ -110,16 +96,12 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// CATALOGO (listas do TMDB)
-// =====================================================
-app.use('/catalogo', catalogRoutes);
-
-// =====================================================
-// WARM CACHE
+// WARM CACHE (endpoint para cron externo)
 // =====================================================
 app.get('/warm-cache', async (req, res) => {
   const secret = req.query.secret;
 
+  // Seguranca opcional: so roda se o secret bater
   if (process.env.WARM_SECRET && secret !== process.env.WARM_SECRET) {
     return res.status(401).json({ error: 'Secret invalido' });
   }
@@ -127,6 +109,7 @@ app.get('/warm-cache', async (req, res) => {
   console.log('\n[WARM-CACHE] Iniciando aquecimento em background...');
   res.json({ message: 'Warm cache iniciado em background', timestamp: new Date().toISOString() });
 
+  // Roda em background (nao bloqueia a resposta)
   try {
     const { default: runWarmCache } = await import('./warm-cache-runner.js');
     await runWarmCache();
