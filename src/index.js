@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { extractStream } from './orchestrator.js';
-import catalogRoutes from './routes/catalog.js';
 
 const app = express();
 app.use(cors());
@@ -11,35 +10,23 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 // =====================================================
+// LOCK GLOBAL: impede warm cache duplicado
+// =====================================================
+let warmCacheRunning = false;
+
+// =====================================================
 // ROTA RAIZ
 // =====================================================
 app.get('/', (req, res) => {
   res.json({
     name: 'Api-alex',
     status: 'online',
+    warmCacheRunning,
     routes: {
-      // Streaming
       filme: '/filmes/:tmdb_id',
       serie: '/series/:tmdb_id',
-      serie_temporada: '/series/:tmdb_id/:season',
       serie_episodio: '/series/:tmdb_id/:season/:episode',
       legado: '/extract?tmdb_id=X&type=movie|tv',
-      // Catalogo (listas)
-      trending_movies: '/catalogo/trending/movies?period=day|week',
-      trending_tv: '/catalogo/trending/tv',
-      populares_filmes: '/catalogo/populares/filmes?page=1',
-      populares_series: '/catalogo/populares/series?page=1',
-      top_filmes: '/catalogo/top/filmes',
-      top_series: '/catalogo/top/series',
-      cartaz: '/catalogo/cartaz',
-      em_breve: '/catalogo/em-breve',
-      series_no_ar: '/catalogo/series/no-ar',
-      generos: '/catalogo/generos',
-      genero: '/catalogo/genero/:nome',
-      familia_animacao: '/catalogo/familia-animacao',
-      portugueses: '/catalogo/portugueses',
-      ano: '/catalogo/ano/:ano',
-      // Util
       warm_cache: '/warm-cache?secret=XXX',
     },
   });
@@ -110,12 +97,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// CATALOGO (listas do TMDB)
-// =====================================================
-app.use('/catalogo', catalogRoutes);
-
-// =====================================================
-// WARM CACHE
+// WARM CACHE (com lock)
 // =====================================================
 app.get('/warm-cache', async (req, res) => {
   const secret = req.query.secret;
@@ -124,14 +106,33 @@ app.get('/warm-cache', async (req, res) => {
     return res.status(401).json({ error: 'Secret invalido' });
   }
 
-  console.log('\n[WARM-CACHE] Iniciando aquecimento em background...');
-  res.json({ message: 'Warm cache iniciado em background', timestamp: new Date().toISOString() });
+  // LOCK: se ja esta rodando, nao dispara de novo
+  if (warmCacheRunning) {
+    return res.json({
+      message: 'Warm cache ja esta rodando',
+      running: true,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
+  warmCacheRunning = true;
+  console.log('\n[WARM-CACHE] Iniciando aquecimento em background...');
+
+  res.json({
+    message: 'Warm cache iniciado em background',
+    running: true,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Roda em background
   try {
     const { default: runWarmCache } = await import('./warm-cache-runner.js');
     await runWarmCache();
   } catch (err) {
     console.error('[WARM-CACHE] Erro:', err.message);
+  } finally {
+    warmCacheRunning = false;
+    console.log('[WARM-CACHE] Finalizado. Lock liberado.');
   }
 });
 
