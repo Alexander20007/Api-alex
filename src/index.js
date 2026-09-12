@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import axios from 'axios';
 import { extractStream } from './orchestrator.js';
 
 const app = express();
@@ -9,9 +10,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// =====================================================
-// LOCK GLOBAL: impede warm cache duplicado
-// =====================================================
 let warmCacheRunning = false;
 
 // =====================================================
@@ -27,6 +25,7 @@ app.get('/', (req, res) => {
       serie: '/series/:tmdb_id',
       serie_episodio: '/series/:tmdb_id/:season/:episode',
       legado: '/extract?tmdb_id=X&type=movie|tv',
+      proxy: '/proxy?url=XXX',
       warm_cache: '/warm-cache?secret=XXX',
     },
   });
@@ -59,7 +58,6 @@ app.get('/series/:tmdb_id', async (req, res) => {
 
 app.get('/series/:tmdb_id/:season', async (req, res) => {
   const { tmdb_id, season } = req.params;
-  console.log(`\n[API] Serie tmdb_id=${tmdb_id} T${season}E1`);
   try {
     const result = await extractStream(tmdb_id, 'tv', parseInt(season), 1);
     res.json(result);
@@ -70,7 +68,6 @@ app.get('/series/:tmdb_id/:season', async (req, res) => {
 
 app.get('/series/:tmdb_id/:season/:episode', async (req, res) => {
   const { tmdb_id, season, episode } = req.params;
-  console.log(`\n[API] Serie tmdb_id=${tmdb_id} T${season}E${episode}`);
   try {
     const result = await extractStream(tmdb_id, 'tv', parseInt(season), parseInt(episode));
     res.json(result);
@@ -85,7 +82,6 @@ app.get('/extract', async (req, res) => {
   const season = req.query.season ? parseInt(req.query.season) : null;
   const episode = req.query.episode ? parseInt(req.query.episode) : null;
 
-  console.log(`\n[API legado] tmdb_id=${tmdbId} type=${type}`);
   if (!tmdbId) return res.status(400).json({ error: 'tmdb_id é obrigatório' });
 
   try {
@@ -97,7 +93,51 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// WARM CACHE (com lock)
+// PROXY (resolve bloqueio de Referer dos CDNs)
+// =====================================================
+app.get('/proxy', async (req, res) => {
+  const targetUrl = req.query.url;
+
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'url é obrigatório' });
+  }
+
+  try {
+    const decodedUrl = decodeURIComponent(targetUrl);
+    console.log(`[PROXY] ${decodedUrl.slice(0, 120)}...`);
+
+    // Determina o Referer correto baseado no domínio
+    let referer = 'https://vidsrc.buzz/';
+    if (decodedUrl.includes('vidsrc.in')) referer = 'https://vidsrc.in/';
+    else if (decodedUrl.includes('vidsrc.buzz')) referer = 'https://vidsrc.buzz/';
+
+    const response = await axios.get(decodedUrl, {
+      responseType: 'arraybuffer',
+      timeout: 30000,
+      maxRedirects: 5,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': referer,
+        'Origin': referer.replace(/\/$/, ''),
+        'Accept': '*/*',
+      },
+    });
+
+    // Repassa os headers relevantes
+    const contentType = response.headers['content-type'] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Repassa o conteúdo
+    res.send(Buffer.from(response.data));
+  } catch (err) {
+    console.error('[PROXY] Erro:', err.message);
+    res.status(500).json({ error: 'Erro no proxy: ' + err.message });
+  }
+});
+
+// =====================================================
+// WARM CACHE
 // =====================================================
 app.get('/warm-cache', async (req, res) => {
   const secret = req.query.secret;
@@ -106,7 +146,6 @@ app.get('/warm-cache', async (req, res) => {
     return res.status(401).json({ error: 'Secret invalido' });
   }
 
-  // LOCK: se ja esta rodando, nao dispara de novo
   if (warmCacheRunning) {
     return res.json({
       message: 'Warm cache ja esta rodando',
@@ -124,7 +163,6 @@ app.get('/warm-cache', async (req, res) => {
     timestamp: new Date().toISOString(),
   });
 
-  // Roda em background
   try {
     const { default: runWarmCache } = await import('./warm-cache-runner.js');
     await runWarmCache();
@@ -132,7 +170,7 @@ app.get('/warm-cache', async (req, res) => {
     console.error('[WARM-CACHE] Erro:', err.message);
   } finally {
     warmCacheRunning = false;
-    console.log('[WARM-CACHE] Finalizado. Lock liberado.');
+    console.log('[WARM-CACHE] Finalizado.');
   }
 });
 
