@@ -47,7 +47,6 @@ app.get('/filmes/:tmdb_id', async (req, res) => {
 
 app.get('/series/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
-  console.log(`\n[API] Serie tmdb_id=${tmdb_id} (T1E1 padrao)`);
   try {
     const result = await extractStream(tmdb_id, 'tv', 1, 1);
     res.json(result);
@@ -93,7 +92,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// PROXY (resolve bloqueio de Referer dos CDNs)
+// PROXY AVANÇADO (reescreve m3u8)
 // =====================================================
 app.get('/proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -123,13 +122,53 @@ app.get('/proxy', async (req, res) => {
       },
     });
 
-    // Repassa os headers relevantes
     const contentType = response.headers['content-type'] || 'application/octet-stream';
+    const buffer = Buffer.from(response.data);
+
+    // 🔑 SE FOR M3U8: reescreve as URLs internas pra passarem pelo proxy
+    if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8') || buffer.toString('utf-8', 0, 10).includes('#EXTM3U')) {
+      const m3u8Text = buffer.toString('utf-8');
+      const baseUrl = new URL(decodedUrl);
+
+      console.log(`[PROXY] Reescrevendo m3u8 (${m3u8Text.length} bytes)...`);
+
+      const lines = m3u8Text.split('\n');
+      const rewritten = lines.map((line) => {
+        const trimmed = line.trim();
+        
+        // Linha vazia ou comentário → mantém
+        if (!trimmed || trimmed.startsWith('#')) {
+          // Mas se for uma tag com URL (ex: #EXT-X-KEY:URI="..."), reescreve
+          if (trimmed.includes('URI="')) {
+            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
+              let absoluteUrl = uri.startsWith('http') ? uri : new URL(uri, baseUrl).toString();
+              return `URI="/proxy?url=${encodeURIComponent(absoluteUrl)}"`;
+            });
+          }
+          return line;
+        }
+
+        // Linha com URL (segmento .ts, playlist .m3u8, etc)
+        let absoluteUrl;
+        try {
+          absoluteUrl = new URL(trimmed, baseUrl).toString();
+        } catch (_) {
+          return line;
+        }
+
+        return `/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.send(rewritten.join('\n'));
+      return;
+    }
+
+    // Não é m3u8: repassa direto (segmentos .ts, imagens, etc)
     res.setHeader('Content-Type', contentType);
     res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // Repassa o conteúdo
-    res.send(Buffer.from(response.data));
+    res.send(buffer);
   } catch (err) {
     console.error('[PROXY] Erro:', err.message);
     res.status(500).json({ error: 'Erro no proxy: ' + err.message });
@@ -147,21 +186,13 @@ app.get('/warm-cache', async (req, res) => {
   }
 
   if (warmCacheRunning) {
-    return res.json({
-      message: 'Warm cache ja esta rodando',
-      running: true,
-      timestamp: new Date().toISOString(),
-    });
+    return res.json({ message: 'Warm cache ja esta rodando', running: true });
   }
 
   warmCacheRunning = true;
-  console.log('\n[WARM-CACHE] Iniciando aquecimento em background...');
+  console.log('\n[WARM-CACHE] Iniciando...');
 
-  res.json({
-    message: 'Warm cache iniciado em background',
-    running: true,
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ message: 'Warm cache iniciado', running: true, timestamp: new Date().toISOString() });
 
   try {
     const { default: runWarmCache } = await import('./warm-cache-runner.js');
@@ -170,7 +201,6 @@ app.get('/warm-cache', async (req, res) => {
     console.error('[WARM-CACHE] Erro:', err.message);
   } finally {
     warmCacheRunning = false;
-    console.log('[WARM-CACHE] Finalizado.');
   }
 });
 
