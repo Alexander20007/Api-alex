@@ -45,3 +45,25 @@ curl "http://localhost:3000/extract?tmdb_id=1396&type=tv&season=1&episode=1"
 ## 👤 Autor
 
 **Alexander** (@Alexander20007)
+
+---
+
+## 🌐 API em Produção
+
+**URL:** https://api-alex-jney.onrender.com
+
+**Status:** ✅ Online 24/7 (monitorado via UptimeRobot)
+
+**Endpoints disponíveis:**
+- `GET /` — Health check
+- `GET /extract?tmdb_id=550&type=movie` — Extrai stream de filme
+- `GET /extract?tmdb_id=1396&type=tv&season=1&episode=1` — Extrai stream de série
+
+**Providers ativos:**
+1. `vidsrc` (vidsrc.in)
+2. `vidsrcbuzz` (vidsrc.buzz)
+3. `vidsrcrip` (stub)
+4. `vidlink` (stub)
+5. `embedsu` (offline)
+
+**Sistema:** Fallback em cascata + cache no Supabase + métricas
