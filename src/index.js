@@ -92,7 +92,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// PROXY AVANÇADO (reescreve m3u8)
+// PROXY ROBUSTO (reescreve m3u8 com tratamento de erro)
 // =====================================================
 app.get('/proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -101,77 +101,134 @@ app.get('/proxy', async (req, res) => {
     return res.status(400).json({ error: 'url é obrigatório' });
   }
 
+  let decodedUrl;
   try {
-    const decodedUrl = decodeURIComponent(targetUrl);
-    console.log(`[PROXY] ${decodedUrl.slice(0, 120)}...`);
+    decodedUrl = decodeURIComponent(targetUrl);
+  } catch (e) {
+    return res.status(400).json({ error: 'url inválida' });
+  }
 
-    // Determina o Referer correto baseado no domínio
+  try {
+    console.log(`\n[PROXY] → ${decodedUrl.slice(0, 150)}`);
+
+    // Referer baseado no domínio
     let referer = 'https://vidsrc.buzz/';
     if (decodedUrl.includes('vidsrc.in')) referer = 'https://vidsrc.in/';
     else if (decodedUrl.includes('vidsrc.buzz')) referer = 'https://vidsrc.buzz/';
+    else if (decodedUrl.includes('tik3.1x2.space') || decodedUrl.includes('.space')) referer = 'https://vidsrc.buzz/';
 
-    const response = await axios.get(decodedUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000,
-      maxRedirects: 5,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': referer,
-        'Origin': referer.replace(/\/$/, ''),
-        'Accept': '*/*',
-      },
-    });
+    let response;
+    try {
+      response = await axios.get(decodedUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        maxRedirects: 5,
+        validateStatus: () => true, // NÃO joga erro em 4xx/5xx
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': referer,
+          'Origin': referer.replace(/\/$/, ''),
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+    } catch (axiosErr) {
+      console.error('[PROXY] Axios erro:', axiosErr.message);
+      return res.status(502).json({ error: 'Erro ao buscar CDN: ' + axiosErr.message });
+    }
 
-    const contentType = response.headers['content-type'] || 'application/octet-stream';
+    const contentType = response.headers['content-type'] || '';
+    const statusCode = response.status;
     const buffer = Buffer.from(response.data);
+    const firstChars = buffer.toString('utf-8', 0, Math.min(20, buffer.length));
 
-    // 🔑 SE FOR M3U8: reescreve as URLs internas pra passarem pelo proxy
-    if (contentType.includes('mpegurl') || decodedUrl.includes('.m3u8') || buffer.toString('utf-8', 0, 10).includes('#EXTM3U')) {
+    console.log(`[PROXY] ← Status ${statusCode} | Content-Type: ${contentType} | ${buffer.length} bytes | Início: "${firstChars.replace(/\n/g, ' ')}"`);
+
+    // Se for erro do CDN, repassa
+    if (statusCode >= 400) {
+      console.error(`[PROXY] CDN retornou ${statusCode}`);
+      return res.status(statusCode).json({
+        error: `CDN retornou ${statusCode}`,
+        cdn_content: firstChars.slice(0, 100),
+      });
+    }
+
+    // Detecta m3u8 (por header, extensão ou conteúdo)
+    const isM3u8 = 
+      contentType.includes('mpegurl') || 
+      contentType.includes('m3u8') ||
+      decodedUrl.includes('.m3u8') || 
+      firstChars.trim().startsWith('#EXTM3U');
+
+    if (isM3u8) {
       const m3u8Text = buffer.toString('utf-8');
+
+      // Se NÃO começa com #EXTM3U, é HTML de erro
+      if (!m3u8Text.trim().startsWith('#EXTM3U')) {
+        console.error('[PROXY] Resposta não é m3u8 válido');
+        return res.status(502).json({
+          error: 'Resposta não é um m3u8 válido',
+          preview: m3u8Text.slice(0, 200),
+        });
+      }
+
+      console.log(`[PROXY] 📝 m3u8 detectado (${m3u8Text.length} bytes) → reescrevendo...`);
+
       const baseUrl = new URL(decodedUrl);
-
-      console.log(`[PROXY] Reescrevendo m3u8 (${m3u8Text.length} bytes)...`);
-
       const lines = m3u8Text.split('\n');
+      let reescritas = 0;
+
       const rewritten = lines.map((line) => {
         const trimmed = line.trim();
-        
-        // Linha vazia ou comentário → mantém
-        if (!trimmed || trimmed.startsWith('#')) {
-          // Mas se for uma tag com URL (ex: #EXT-X-KEY:URI="..."), reescreve
+
+        if (!trimmed) return line;
+
+        // Comentário com URI (ex: #EXT-X-KEY:URI="...")
+        if (trimmed.startsWith('#')) {
           if (trimmed.includes('URI="')) {
-            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
-              let absoluteUrl = uri.startsWith('http') ? uri : new URL(uri, baseUrl).toString();
-              return `URI="/proxy?url=${encodeURIComponent(absoluteUrl)}"`;
+            return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
+              try {
+                const abs = uri.startsWith('http') ? uri : new URL(uri, baseUrl).toString();
+                return `URI="/proxy?url=${encodeURIComponent(abs)}"`;
+              } catch (_) {
+                return `URI="${uri}"`;
+              }
             });
           }
           return line;
         }
 
-        // Linha com URL (segmento .ts, playlist .m3u8, etc)
-        let absoluteUrl;
+        // Linha com URL (segmento .ts, .m3u8, .aac, etc)
         try {
-          absoluteUrl = new URL(trimmed, baseUrl).toString();
+          const abs = trimmed.startsWith('http') ? trimmed : new URL(trimmed, baseUrl).toString();
+          reescritas++;
+          return `/proxy?url=${encodeURIComponent(abs)}`;
         } catch (_) {
           return line;
         }
-
-        return `/proxy?url=${encodeURIComponent(absoluteUrl)}`;
       });
+
+      console.log(`[PROXY] ✅ ${reescritas} URLs reescritas`);
 
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.send(rewritten.join('\n'));
-      return;
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.send(rewritten.join('\n'));
     }
 
     // Não é m3u8: repassa direto (segmentos .ts, imagens, etc)
-    res.setHeader('Content-Type', contentType);
+    console.log(`[PROXY] 📦 Binário (${buffer.length} bytes) → repassando`);
+    res.setHeader('Content-Type', contentType || 'application/octet-stream');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.send(buffer);
+    return res.send(buffer);
+
   } catch (err) {
-    console.error('[PROXY] Erro:', err.message);
-    res.status(500).json({ error: 'Erro no proxy: ' + err.message });
+    console.error('[PROXY] ❌ Erro geral:', err.message);
+    console.error('[PROXY] Stack:', err.stack?.slice(0, 500));
+    return res.status(500).json({
+      error: 'Erro no proxy',
+      message: err.message,
+    });
   }
 });
 
