@@ -36,7 +36,6 @@ app.get('/', (req, res) => {
 // =====================================================
 app.get('/filmes/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
-  console.log(`\n[API] Filme tmdb_id=${tmdb_id}`);
   try {
     const result = await extractStream(tmdb_id, 'movie', null, null);
     res.json(result);
@@ -92,7 +91,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// PROXY ROBUSTO (reescreve m3u8 com tratamento de erro)
+// PROXY MELHORADO
 // =====================================================
 app.get('/proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -111,11 +110,8 @@ app.get('/proxy', async (req, res) => {
   try {
     console.log(`\n[PROXY] → ${decodedUrl.slice(0, 150)}`);
 
-    // Referer baseado no domínio
-    let referer = 'https://vidsrc.buzz/';
-    if (decodedUrl.includes('vidsrc.in')) referer = 'https://vidsrc.in/';
-    else if (decodedUrl.includes('vidsrc.buzz')) referer = 'https://vidsrc.buzz/';
-    else if (decodedUrl.includes('tik3.1x2.space') || decodedUrl.includes('.space')) referer = 'https://vidsrc.buzz/';
+    // Referer sempre vidsrc.buzz (os sub-playlists também exigem)
+    const referer = 'https://vidsrc.buzz/';
 
     let response;
     try {
@@ -123,13 +119,16 @@ app.get('/proxy', async (req, res) => {
         responseType: 'arraybuffer',
         timeout: 30000,
         maxRedirects: 5,
-        validateStatus: () => true, // NÃO joga erro em 4xx/5xx
+        validateStatus: () => true,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Referer': referer,
           'Origin': referer.replace(/\/$/, ''),
           'Accept': '*/*',
           'Accept-Language': 'en-US,en;q=0.9',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'cross-site',
         },
       });
     } catch (axiosErr) {
@@ -140,39 +139,35 @@ app.get('/proxy', async (req, res) => {
     const contentType = response.headers['content-type'] || '';
     const statusCode = response.status;
     const buffer = Buffer.from(response.data);
-    const firstChars = buffer.toString('utf-8', 0, Math.min(20, buffer.length));
+    const firstChars = buffer.toString('utf-8', 0, Math.min(30, buffer.length));
 
-    console.log(`[PROXY] ← Status ${statusCode} | Content-Type: ${contentType} | ${buffer.length} bytes | Início: "${firstChars.replace(/\n/g, ' ')}"`);
+    console.log(`[PROXY] ← Status ${statusCode} | CT: ${contentType} | ${buffer.length} bytes | "${firstChars.replace(/\n/g, ' ')}"`);
 
-    // Se for erro do CDN, repassa
     if (statusCode >= 400) {
-      console.error(`[PROXY] CDN retornou ${statusCode}`);
+      console.error(`[PROXY] ❌ CDN retornou ${statusCode}`);
       return res.status(statusCode).json({
         error: `CDN retornou ${statusCode}`,
-        cdn_content: firstChars.slice(0, 100),
+        preview: firstChars.slice(0, 200),
       });
     }
 
-    // Detecta m3u8 (por header, extensão ou conteúdo)
-    const isM3u8 = 
-      contentType.includes('mpegurl') || 
+    // Detecta m3u8
+    const isM3u8 =
+      contentType.includes('mpegurl') ||
       contentType.includes('m3u8') ||
-      decodedUrl.includes('.m3u8') || 
+      decodedUrl.includes('.m3u8') ||
       firstChars.trim().startsWith('#EXTM3U');
 
     if (isM3u8) {
       const m3u8Text = buffer.toString('utf-8');
 
-      // Se NÃO começa com #EXTM3U, é HTML de erro
       if (!m3u8Text.trim().startsWith('#EXTM3U')) {
-        console.error('[PROXY] Resposta não é m3u8 válido');
+        console.error('[PROXY] ❌ Não é m3u8 válido');
         return res.status(502).json({
-          error: 'Resposta não é um m3u8 válido',
+          error: 'Não é m3u8 válido',
           preview: m3u8Text.slice(0, 200),
         });
       }
-
-      console.log(`[PROXY] 📝 m3u8 detectado (${m3u8Text.length} bytes) → reescrevendo...`);
 
       const baseUrl = new URL(decodedUrl);
       const lines = m3u8Text.split('\n');
@@ -180,10 +175,9 @@ app.get('/proxy', async (req, res) => {
 
       const rewritten = lines.map((line) => {
         const trimmed = line.trim();
-
         if (!trimmed) return line;
 
-        // Comentário com URI (ex: #EXT-X-KEY:URI="...")
+        // Tags com URI (ex: #EXT-X-KEY:URI="...")
         if (trimmed.startsWith('#')) {
           if (trimmed.includes('URI="')) {
             return trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
@@ -198,7 +192,7 @@ app.get('/proxy', async (req, res) => {
           return line;
         }
 
-        // Linha com URL (segmento .ts, .m3u8, .aac, etc)
+        // URL (segmento .ts, sub-playlist .m3u8, etc)
         try {
           const abs = trimmed.startsWith('http') ? trimmed : new URL(trimmed, baseUrl).toString();
           reescritas++;
@@ -208,7 +202,8 @@ app.get('/proxy', async (req, res) => {
         }
       });
 
-      console.log(`[PROXY] ✅ ${reescritas} URLs reescritas`);
+      const isMaster = m3u8Text.includes('#EXT-X-STREAM-INF');
+      console.log(`[PROXY] 📝 ${isMaster ? 'MASTER' : 'SUB'} m3u8 | ${reescritas} URLs reescritas`);
 
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.setHeader('Access-Control-Allow-Origin', '*');
@@ -216,15 +211,14 @@ app.get('/proxy', async (req, res) => {
       return res.send(rewritten.join('\n'));
     }
 
-    // Não é m3u8: repassa direto (segmentos .ts, imagens, etc)
-    console.log(`[PROXY] 📦 Binário (${buffer.length} bytes) → repassando`);
+    // Binário (segmento .ts, imagem, etc)
+    console.log(`[PROXY] 📦 Binário (${buffer.length} bytes)`);
     res.setHeader('Content-Type', contentType || 'application/octet-stream');
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.send(buffer);
 
   } catch (err) {
     console.error('[PROXY] ❌ Erro geral:', err.message);
-    console.error('[PROXY] Stack:', err.stack?.slice(0, 500));
     return res.status(500).json({
       error: 'Erro no proxy',
       message: err.message,
