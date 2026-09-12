@@ -24,18 +24,12 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install --break-system-packages yt-dlp
 
-# Usuário não-root (Northflank exige)
-RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+WORKDIR /app
 
-WORKDIR /home/user/app
-
-COPY --chown=user package*.json ./
+COPY package*.json ./
 RUN npm install --omit=dev
 
-COPY --chown=user . .
+COPY . .
 
 ENV PORT=3000
 ENV CHROMIUM_PATH=/usr/bin/chromium
