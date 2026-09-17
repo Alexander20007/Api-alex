@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import fs from 'fs';
 import cors from 'cors';
 import axios from 'axios';
 import { extractStream } from './orchestrator.js';
@@ -16,63 +17,53 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    // Permite requisições SEM origin (curl, apps, UptimeRobot, etc)
-    if (!origin) return callback(null, true);
-
-    // Permite só os domínios da lista
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.warn(`[CORS] ❌ Bloqueado: ${origin}`);
+    if (!origin || origin === 'null') return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    console.warn(`[CORS] Bloqueado: ${origin}`);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-}));
+};
 
+const corsMiddleware = cors(corsOptions);
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 let warmCacheRunning = false;
 
 // =====================================================
-// ROTA RAIZ
+// ROTA RAIZ - HTML BONITO
 // =====================================================
 app.get('/', (req, res) => {
-  res.json({
-    name: 'Api-alex',
-    status: 'online',
-    warmCacheRunning,
-    routes: {
-      filme: '/filmes/:tmdb_id',
-      serie: '/series/:tmdb_id',
-      legado: '/extract?tmdb_id=X&type=movie|tv',
-      proxy: '/proxy?url=XXX&cookies=YYY',
-      warm_cache: '/warm-cache?secret=XXX',
-    },
-  });
+  try {
+    const html = fs.readFileSync('./src/landing.html', 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao carregar landing', message: err.message });
+  }
 });
 
 // =====================================================
-// STREAMING
+// STREAMING (com CORS restritivo)
 // =====================================================
-app.get('/filmes/:tmdb_id', async (req, res) => {
+app.get('/filmes/:tmdb_id', corsMiddleware, async (req, res) => {
   try {
     const result = await extractStream(req.params.tmdb_id, 'movie', null, null);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/series/:tmdb_id', async (req, res) => {
+app.get('/series/:tmdb_id', corsMiddleware, async (req, res) => {
   try {
     const result = await extractStream(req.params.tmdb_id, 'tv', 1, 1);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/series/:tmdb_id/:season/:episode', async (req, res) => {
+app.get('/series/:tmdb_id/:season/:episode', corsMiddleware, async (req, res) => {
   try {
     const result = await extractStream(
       req.params.tmdb_id, 'tv',
@@ -82,7 +73,7 @@ app.get('/series/:tmdb_id/:season/:episode', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/extract', async (req, res) => {
+app.get('/extract', corsMiddleware, async (req, res) => {
   const tmdbId = req.query.tmdb_id;
   const type = req.query.type === 'tv' ? 'tv' : 'movie';
   const season = req.query.season ? parseInt(req.query.season) : null;
@@ -244,5 +235,6 @@ app.get('/warm-cache', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🎬 Api-alex rodando em http://localhost:${PORT}`);
-  console.log(`🔒 CORS permitido para: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`🔒 CORS restritivo para: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`✅ Rotas sem CORS: /, /warm-cache`);
 });
