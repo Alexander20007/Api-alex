@@ -3,6 +3,7 @@ import { VidSrcBuzzProvider } from './providers/vidsrcbuzz.js';
 import { EmbedSuProvider } from './providers/embedsu.js';
 import { VidLinkProvider } from './providers/vidlink.js';
 import { VidSrcRipProvider } from './providers/vidsrcrip.js';
+import { VidSrcMeProvider } from './providers/vidsrcme.js';
 import { getProviders, getFromCache, saveToCache, logMetric } from './utils/supabase.js';
 
 const PROVIDER_CLASSES = {
@@ -11,6 +12,7 @@ const PROVIDER_CLASSES = {
   embedsu: EmbedSuProvider,
   vidlink: VidLinkProvider,
   vidsrcrip: VidSrcRipProvider,
+  vidsrcme: VidSrcMeProvider,
 };
 
 function buildProviders(providerRows) {
@@ -30,7 +32,7 @@ function buildProviders(providerRows) {
       playerPatterns: row.player_patterns || [],
       ignorePatterns: row.ignore_patterns || [],
       needsClick: row.needs_click,
-      timeoutMs: row.timeout_ms || 40000,
+      timeoutMs: row.timeout_ms || 60000,
     };
     instances.push(instance);
   }
@@ -60,11 +62,10 @@ export async function extractStream(tmdbId, type, season, episode) {
   const providerRows = await getProviders();
 
   if (providerRows.length === 0) {
-    return { success: false, error: 'Nenhum provider ativo no banco de dados', attempts: [] };
+    return { success: false, error: 'Nenhum provider ativo no banco', attempts: [] };
   }
 
-  console.log(`[+] ${providerRows.length} provider(s) ativo(s): ${providerRows.map((p) => p.name).join(', ')}`);
-
+  console.log(`[+] ${providerRows.length} provider(s): ${providerRows.map((p) => p.name).join(', ')}`);
   const providers = buildProviders(providerRows);
 
   for (const provider of providers) {
@@ -78,7 +79,8 @@ export async function extractStream(tmdbId, type, season, episode) {
 
       if (result?.hlsUrl) {
         console.log(`[+] ${name} SUCESSO em ${elapsed}ms`);
-        await saveToCache(tmdbId, type, season, episode, name, result.hlsUrl, result.subtitles || [], 24);
+        // TTL curto (3 minutos) porque tokens do vidsrcme expiram rapido
+        await saveToCache(tmdbId, type, season, episode, name, result.hlsUrl, result.subtitles || [], 0.05);
         await logMetric(name, tmdbId, type, true, elapsed);
         attempts.push({ provider: name, success: true, elapsed_ms: elapsed });
         return {
@@ -95,7 +97,6 @@ export async function extractStream(tmdbId, type, season, episode) {
       console.log(`[-] ${name} nao retornou link`);
       await logMetric(name, tmdbId, type, false, elapsed2, 'sem link');
       attempts.push({ provider: name, success: false, reason: 'sem link', elapsed_ms: elapsed2 });
-
     } catch (err) {
       const elapsed = Date.now() - providerStart;
       console.log(`[-] ${name} ERRO: ${err.message}`);
