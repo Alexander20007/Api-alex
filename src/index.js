@@ -61,7 +61,7 @@ app.get('/teste', (req, res) => {
 });
 
 // =====================================================
-// STATS (agregado, sem dados sensíveis)
+// STATS
 // =====================================================
 app.get('/stats', async (req, res) => {
   try {
@@ -73,7 +73,7 @@ app.get('/stats', async (req, res) => {
 });
 
 // =====================================================
-// STREAMING (com CORS restritivo)
+// STREAMING
 // =====================================================
 app.get('/filmes/:tmdb_id', corsMiddleware, async (req, res) => {
   try {

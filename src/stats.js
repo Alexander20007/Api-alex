@@ -24,10 +24,8 @@ export async function getStats() {
     if (status) {
       result.first_seen = status.first_seen;
       result.restart_count = status.restart_count;
-
       const firstSeen = new Date(status.first_seen).getTime();
       result.uptime = Math.floor((Date.now() - firstSeen) / 1000);
-
       await supabase
         .from('api_status')
         .update({ last_seen: new Date().toISOString() })

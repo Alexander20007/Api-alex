@@ -12,14 +12,14 @@
     --border: #222; --border-hover: #00d2ff; --text: #fff; --text-2: #888;
     --text-3: #666; --text-4: #555; --accent: #00d2ff; --accent-2: #7c3aed;
     --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
-    --shadow: rgba(0,0,0,0.5); --shadow-accent: rgba(0,210,255,0.1);
+    --shadow: rgba(0,0,0,0.5); --shadow-accent: rgba(0,210,255,0.15);
   }
   [data-theme="light"] {
     --bg: #f5f5f7; --bg-card: #fff; --bg-card-2: #fafafa; --bg-input: #f0f0f0;
     --border: #e0e0e0; --border-hover: #0077ff; --text: #0a0a0a; --text-2: #666;
     --text-3: #888; --text-4: #aaa; --accent: #0077ff; --accent-2: #7c3aed;
     --green: #16a34a; --red: #dc2626; --yellow: #d97706;
-    --shadow: rgba(0,0,0,0.1); --shadow-accent: rgba(0,119,255,0.1);
+    --shadow: rgba(0,0,0,0.1); --shadow-accent: rgba(0,119,255,0.15);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; line-height: 1.6; }
@@ -55,8 +55,12 @@
   .popular-rank.top-3 { background: linear-gradient(135deg, #b45309, #92400e); }
   .popular-title { flex: 1; font-size: 14px; font-weight: 500; color: var(--text); }
   .popular-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-  .player-cta { display: flex; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 16px 24px; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; transition: all 0.2s; box-shadow: 0 8px 24px var(--shadow-accent); }
-  .player-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 32px var(--shadow-accent); }
+  .cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .cta-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; text-decoration: none; transition: all 0.2s; cursor: pointer; border: 2px solid transparent; }
+  .cta-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 8px 24px var(--shadow-accent); }
+  .cta-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px var(--shadow-accent); }
+  .cta-secondary { background: var(--bg-input); color: var(--text); border-color: var(--border); }
+  .cta-secondary:hover { border-color: var(--border-hover); color: var(--accent); transform: translateY(-2px); }
   .footer { text-align: center; font-size: 12px; color: var(--text-4); margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
   .footer a { color: var(--accent); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
@@ -66,6 +70,9 @@
     h1 { font-size: 26px; }
     .logo { font-size: 42px; }
     .theme-toggle { top: 12px; right: 12px; width: 40px; height: 40px; font-size: 18px; }
+  }
+  @media (max-width: 500px) {
+    .cta-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -115,9 +122,14 @@
       <div class="loading-text">Carregando...</div>
     </div>
 
-    <a class="player-cta" href="https://alxmovies.netlify.app" target="_blank">
-      ▶ Abrir o Player
-    </a>
+    <div class="cta-grid">
+      <a class="cta-btn cta-primary" href="https://alxmovies.netlify.app" target="_blank">
+        🌐 Acessar o Site
+      </a>
+      <a class="cta-btn cta-secondary" href="/teste">
+        ▶ Testar Player
+      </a>
+    </div>
 
     <div class="footer">
       Feito com 💙 por <a href="https://github.com/Alexander20007" target="_blank">@Alexander20007</a><br>
