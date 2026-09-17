@@ -4,6 +4,7 @@ import fs from 'fs';
 import cors from 'cors';
 import axios from 'axios';
 import { extractStream } from './orchestrator.js';
+import { getStats } from './stats.js';
 
 const app = express();
 
@@ -230,6 +231,20 @@ app.get('/warm-cache', async (req, res) => {
     console.error('[WARM-CACHE] erro:', err.message);
   } finally {
     warmCacheRunning = false;
+  }
+});
+
+
+
+// =====================================================
+// STATS (dados agregados, sem informações sensíveis)
+// =====================================================
+app.get('/stats', async (req, res) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
