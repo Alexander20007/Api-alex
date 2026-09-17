@@ -5,12 +5,41 @@ import axios from 'axios';
 import { extractStream } from './orchestrator.js';
 
 const app = express();
-app.use(cors());
+
+// =====================================================
+// CORS RESTRITIVO
+// =====================================================
+const ALLOWED_ORIGINS = [
+  'https://alxmovies.netlify.app',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'http://127.0.0.1:3000',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite requisições SEM origin (curl, apps, UptimeRobot, etc)
+    if (!origin) return callback(null, true);
+
+    // Permite só os domínios da lista
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] ❌ Bloqueado: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 let warmCacheRunning = false;
 
+// =====================================================
+// ROTA RAIZ
+// =====================================================
 app.get('/', (req, res) => {
   res.json({
     name: 'Api-alex',
@@ -26,6 +55,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// =====================================================
+// STREAMING
+// =====================================================
 app.get('/filmes/:tmdb_id', async (req, res) => {
   try {
     const result = await extractStream(req.params.tmdb_id, 'movie', null, null);
@@ -65,7 +97,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// PROXY (headers EXATOS do Chromium)
+// PROXY
 // =====================================================
 app.get('/proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -83,19 +115,16 @@ app.get('/proxy', async (req, res) => {
   try {
     console.log(`\n[PROXY] -> ${decodedUrl.slice(0, 150)}`);
 
-    // 🎯 REFERER CORRETO: cloudorchestranova.com
     let referer = 'https://cloudorchestranova.com/';
     if (decodedUrl.includes('vidsrcme.ru')) referer = 'https://vidsrcme.ru/';
     if (decodedUrl.includes('vidsrc.buzz')) referer = 'https://vidsrc.buzz/';
 
     const headers = {
-      // Headers EXATOS que o Chromium envia
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
       'Origin': referer.replace(/\/$/, ''),
       'Referer': referer,
-      // 🎯 NOVOS: sec-ch-ua headers
       'sec-ch-ua': '"Not?A_Brand";v="24", "Chromium";v="152"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
@@ -192,6 +221,9 @@ app.get('/proxy', async (req, res) => {
   }
 });
 
+// =====================================================
+// WARM CACHE
+// =====================================================
 app.get('/warm-cache', async (req, res) => {
   const secret = req.query.secret;
   if (process.env.WARM_SECRET && secret !== process.env.WARM_SECRET) {
@@ -211,5 +243,6 @@ app.get('/warm-cache', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Api-alex rodando em http://localhost:${PORT}`);
+  console.log(`🎬 Api-alex rodando em http://localhost:${PORT}`);
+  console.log(`🔒 CORS permitido para: ${ALLOWED_ORIGINS.join(', ')}`);
 });
