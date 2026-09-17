@@ -9,7 +9,6 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-
 let warmCacheRunning = false;
 
 app.get('/', (req, res) => {
@@ -43,7 +42,10 @@ app.get('/series/:tmdb_id', async (req, res) => {
 
 app.get('/series/:tmdb_id/:season/:episode', async (req, res) => {
   try {
-    const result = await extractStream(req.params.tmdb_id, 'tv', parseInt(req.params.season), parseInt(req.params.episode));
+    const result = await extractStream(
+      req.params.tmdb_id, 'tv',
+      parseInt(req.params.season), parseInt(req.params.episode)
+    );
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -63,7 +65,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // =====================================================
-// PROXY (com cookies)
+// PROXY (headers EXATOS do Chromium)
 // =====================================================
 app.get('/proxy', async (req, res) => {
   const targetUrl = req.query.url;
@@ -79,24 +81,27 @@ app.get('/proxy', async (req, res) => {
   }
 
   try {
-    console.log(`\n[PROXY] → ${decodedUrl.slice(0, 150)}`);
-    if (cookieStr) console.log(`[PROXY] cookies: ${cookieStr.slice(0, 80)}...`);
+    console.log(`\n[PROXY] -> ${decodedUrl.slice(0, 150)}`);
 
-    let referer = 'https://vidsrcme.ru/';
-    if (decodedUrl.includes('zealotsofzenith')) referer = 'https://zealotsofzenith.site/';
-    if (decodedUrl.includes('mnemonicmonson')) referer = 'https://mnemonicmonson.site/';
-    if (decodedUrl.includes('comityofcognomen')) referer = 'https://comityofcognomen.site/';
+    // 🎯 REFERER CORRETO: cloudorchestranova.com
+    let referer = 'https://cloudorchestranova.com/';
+    if (decodedUrl.includes('vidsrcme.ru')) referer = 'https://vidsrcme.ru/';
     if (decodedUrl.includes('vidsrc.buzz')) referer = 'https://vidsrc.buzz/';
 
     const headers = {
+      // Headers EXATOS que o Chromium envia
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': referer,
-      'Origin': referer.replace(/\/$/, ''),
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'cross-site',
+      'Origin': referer.replace(/\/$/, ''),
+      'Referer': referer,
+      // 🎯 NOVOS: sec-ch-ua headers
+      'sec-ch-ua': '"Not?A_Brand";v="24", "Chromium";v="152"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'cross-site',
     };
 
     if (cookieStr) {
@@ -120,7 +125,7 @@ app.get('/proxy', async (req, res) => {
     const buffer = Buffer.from(response.data);
     const firstChars = buffer.toString('utf-8', 0, Math.min(30, buffer.length));
 
-    console.log(`[PROXY] ← ${statusCode} | ${contentType} | ${buffer.length}b`);
+    console.log(`[PROXY] <- ${statusCode} | ${contentType} | ${buffer.length}b`);
 
     if (statusCode >= 400) {
       return res.status(statusCode).json({
@@ -187,17 +192,12 @@ app.get('/proxy', async (req, res) => {
   }
 });
 
-// =====================================================
-// WARM CACHE
-// =====================================================
 app.get('/warm-cache', async (req, res) => {
   const secret = req.query.secret;
   if (process.env.WARM_SECRET && secret !== process.env.WARM_SECRET) {
     return res.status(401).json({ error: 'Secret invalido' });
   }
-  if (warmCacheRunning) {
-    return res.json({ message: 'Ja rodando', running: true });
-  }
+  if (warmCacheRunning) return res.json({ message: 'Ja rodando', running: true });
   warmCacheRunning = true;
   res.json({ message: 'Warm cache iniciado', running: true });
   try {
@@ -211,5 +211,5 @@ app.get('/warm-cache', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🎬 Api-alex rodando em http://localhost:${PORT}`);
+  console.log(`Api-alex rodando em http://localhost:${PORT}`);
 });
