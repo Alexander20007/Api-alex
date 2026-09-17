@@ -8,347 +8,59 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   :root, [data-theme="dark"] {
-    --bg: #0a0a0a;
-    --bg-card: #151515;
-    --bg-card-2: #1a1a1a;
-    --bg-input: #0f0f0f;
-    --border: #222;
-    --border-hover: #00d2ff;
-    --text: #ffffff;
-    --text-2: #888;
-    --text-3: #666;
-    --text-4: #555;
-    --accent: #00d2ff;
-    --accent-2: #7c3aed;
-    --green: #4ade80;
-    --red: #f87171;
-    --yellow: #fbbf24;
-    --shadow: rgba(0, 0, 0, 0.5);
-    --shadow-accent: rgba(0, 210, 255, 0.1);
+    --bg: #0a0a0a; --bg-card: #151515; --bg-card-2: #1a1a1a; --bg-input: #0f0f0f;
+    --border: #222; --border-hover: #00d2ff; --text: #fff; --text-2: #888;
+    --text-3: #666; --text-4: #555; --accent: #00d2ff; --accent-2: #7c3aed;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    --shadow: rgba(0,0,0,0.5); --shadow-accent: rgba(0,210,255,0.1);
   }
-
   [data-theme="light"] {
-    --bg: #f5f5f7;
-    --bg-card: #ffffff;
-    --bg-card-2: #fafafa;
-    --bg-input: #f0f0f0;
-    --border: #e0e0e0;
-    --border-hover: #0077ff;
-    --text: #0a0a0a;
-    --text-2: #666;
-    --text-3: #888;
-    --text-4: #aaa;
-    --accent: #0077ff;
-    --accent-2: #7c3aed;
-    --green: #16a34a;
-    --red: #dc2626;
-    --yellow: #d97706;
-    --shadow: rgba(0, 0, 0, 0.1);
-    --shadow-accent: rgba(0, 119, 255, 0.1);
+    --bg: #f5f5f7; --bg-card: #fff; --bg-card-2: #fafafa; --bg-input: #f0f0f0;
+    --border: #e0e0e0; --border-hover: #0077ff; --text: #0a0a0a; --text-2: #666;
+    --text-3: #888; --text-4: #aaa; --accent: #0077ff; --accent-2: #7c3aed;
+    --green: #16a34a; --red: #dc2626; --yellow: #d97706;
+    --shadow: rgba(0,0,0,0.1); --shadow-accent: rgba(0,119,255,0.1);
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 20px;
-    line-height: 1.6;
-  }
-
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; line-height: 1.6; }
   .container { max-width: 820px; margin: 0 auto; }
-
-  .theme-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    z-index: 1000;
-    box-shadow: 0 4px 12px var(--shadow);
-  }
-
-  .theme-toggle:hover {
-    transform: scale(1.1);
-    border-color: var(--border-hover);
-  }
-
-  .main-card {
-    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card-2) 100%);
-    border-radius: 24px;
-    padding: 40px;
-    box-shadow: 0 20px 60px var(--shadow);
-    border: 1px solid var(--border);
-    margin-bottom: 20px;
-  }
-
-  .header {
-    text-align: center;
-    margin-bottom: 32px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo {
-    font-size: 56px;
-    margin-bottom: 12px;
-    display: block;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
-  }
-
-  h1 {
-    font-size: 36px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-  }
-
+  .theme-toggle { position: fixed; top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 1000; box-shadow: 0 4px 12px var(--shadow); }
+  .theme-toggle:hover { transform: scale(1.1); border-color: var(--border-hover); }
+  .main-card { background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card-2) 100%); border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px var(--shadow); border: 1px solid var(--border); }
+  .header { text-align: center; margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 56px; margin-bottom: 12px; display: block; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  h1 { font-size: 36px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; letter-spacing: -0.5px; }
   .tagline { color: var(--text-2); font-size: 14px; }
-
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: color-mix(in srgb, var(--green) 10%, transparent);
-    color: var(--green);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    margin-top: 16px;
-    border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--green);
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.2); }
-  }
-
-  .info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-    margin-bottom: 32px;
-  }
-
-  .info-card {
-    background: var(--bg-input);
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-  }
-
-  .info-label {
-    font-size: 11px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-
-  .info-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-  }
-
+  .status-badge { display: inline-flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 16px; border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
+  .status-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+  .first-seen { text-align: center; margin-top: 12px; font-size: 12px; color: var(--text-3); }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .info-card { background: var(--bg-input); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
+  .info-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .info-value { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
   .info-value.green { color: var(--green); }
   .info-value.blue { color: var(--accent); }
   .info-value.yellow { color: var(--yellow); }
-
-  .chart-container {
-    background: var(--bg-input);
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    margin-bottom: 24px;
-    height: 220px;
-    position: relative;
-  }
-
-  .chart-title {
-    font-size: 12px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 12px;
-    font-weight: 600;
-  }
-
-  h2 {
-    font-size: 13px;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .popular-list {
-    background: var(--bg-input);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-    margin-bottom: 24px;
-  }
-
-  .popular-item {
-    display: flex;
-    align-items: center;
-    padding: 14px 16px;
-    gap: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
+  .chart-container { background: var(--bg-input); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 24px; height: 220px; position: relative; }
+  .chart-title { font-size: 12px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
+  h2 { font-size: 13px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .popular-list { background: var(--bg-input); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 24px; }
+  .popular-item { display: flex; align-items: center; padding: 14px 16px; gap: 12px; border-bottom: 1px solid var(--border); }
   .popular-item:last-child { border-bottom: none; }
-
-  .popular-rank {
-    width: 28px;
-    height: 28px;
-    background: var(--accent-2);
-    color: #fff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
+  .popular-rank { width: 28px; height: 28px; background: var(--accent-2); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
   .popular-rank.top-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
   .popular-rank.top-2 { background: linear-gradient(135deg, #9ca3af, #6b7280); }
   .popular-rank.top-3 { background: linear-gradient(135deg, #b45309, #92400e); }
-
-  .popular-title {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  .popular-count {
-    font-size: 12px;
-    color: var(--text-3);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .providers-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-    margin-bottom: 24px;
-  }
-
-  .provider-card {
-    background: var(--bg-input);
-    padding: 14px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .provider-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .provider-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .provider-dot.offline { background: var(--red); }
-  .provider-dot.unknown { background: var(--yellow); }
-
-  .provider-name {
-    font-size: 13px;
-    font-weight: 500;
-    flex: 1;
-  }
-
-  .provider-priority {
-    font-size: 10px;
-    color: var(--text-3);
-    background: var(--bg-card);
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .player-cta {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #fff;
-    padding: 16px 24px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.2s;
-    box-shadow: 0 8px 24px var(--shadow-accent);
-  }
-
-  .player-cta:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px var(--shadow-accent);
-  }
-
-  .footer {
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-4);
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-  }
-
-  .footer a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
+  .popular-title { flex: 1; font-size: 14px; font-weight: 500; color: var(--text); }
+  .popular-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .player-cta { display: flex; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 16px 24px; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; transition: all 0.2s; box-shadow: 0 8px 24px var(--shadow-accent); }
+  .player-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 32px var(--shadow-accent); }
+  .footer { text-align: center; font-size: 12px; color: var(--text-4); margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .footer a { color: var(--accent); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
-
-  .loading-text {
-    color: var(--text-3);
-    font-size: 13px;
-    text-align: center;
-    padding: 20px;
-  }
-
+  .loading-text { color: var(--text-3); font-size: 13px; text-align: center; padding: 20px; }
   @media (max-width: 600px) {
     .main-card { padding: 24px; }
     h1 { font-size: 26px; }
@@ -366,18 +78,15 @@
     <div class="header">
       <span class="logo">🎬</span>
       <h1>Api-alex</h1>
-      <p class="tagline">API de streaming — Produção</p>
+      <p class="tagline">API de streaming</p>
       <div class="status-badge">
         <span class="status-dot"></span>
         <span id="uptime">Carregando...</span>
       </div>
+      <div class="first-seen" id="first-seen-info"></div>
     </div>
 
     <div class="info-grid">
-      <div class="info-card">
-        <div class="info-label">Providers Ativos</div>
-        <div class="info-value green" id="providers-active">—</div>
-      </div>
       <div class="info-card">
         <div class="info-label">Filmes em Cache</div>
         <div class="info-value blue" id="cache-count">—</div>
@@ -390,6 +99,10 @@
         <div class="info-label">Taxa de Sucesso</div>
         <div class="info-value green" id="success-rate">—</div>
       </div>
+      <div class="info-card">
+        <div class="info-label">Reinícios</div>
+        <div class="info-value yellow" id="restart-count">—</div>
+      </div>
     </div>
 
     <div class="chart-container">
@@ -397,13 +110,8 @@
       <canvas id="reqChart"></canvas>
     </div>
 
-    <h2>🔥 Mais Populares</h2>
+    <h2>🔥 Mais Populares (7 dias)</h2>
     <div class="popular-list" id="popular-list">
-      <div class="loading-text">Carregando...</div>
-    </div>
-
-    <h2>🛠️ Providers</h2>
-    <div class="providers-grid" id="providers-grid">
       <div class="loading-text">Carregando...</div>
     </div>
 
@@ -419,9 +127,6 @@
 </div>
 
 <script>
-// =====================================================
-// THEME
-// =====================================================
 function toggleTheme() {
   const html = document.documentElement;
   const current = html.getAttribute('data-theme');
@@ -436,71 +141,26 @@ const savedTheme = localStorage.getItem('theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 document.querySelector('.theme-toggle').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
-function getCSSVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
+function getCSSVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-// =====================================================
-// CHART
-// =====================================================
 let chart = null;
 
-function initChart(labels = null, data = null) {
+function initChart(labels, data) {
   const ctx = document.getElementById('reqChart').getContext('2d');
-
-  // Se não veio dados, gera vazio
   if (!labels) {
-    labels = [];
-    data = [];
-    for (let i = 23; i >= 0; i--) {
-      labels.push(`${i}h`);
-      data.push(0);
-    }
+    labels = []; data = [];
+    for (let i = 23; i >= 0; i--) { labels.push(`${i}h`); data.push(0); }
   }
-
   chart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Requisições',
-        data,
-        borderColor: getCSSVar('--accent'),
-        backgroundColor: getCSSVar('--accent') + '20',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-      }]
-    },
+    data: { labels, datasets: [{ label: 'Req', data, borderColor: getCSSVar('--accent'), backgroundColor: getCSSVar('--accent') + '20', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0, pointHoverRadius: 4 }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: getCSSVar('--bg-card'),
-          titleColor: getCSSVar('--text'),
-          bodyColor: getCSSVar('--text'),
-          borderColor: getCSSVar('--border'),
-          borderWidth: 1,
-          padding: 10,
-          displayColors: false,
-        }
-      },
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: getCSSVar('--bg-card'), titleColor: getCSSVar('--text'), bodyColor: getCSSVar('--text'), borderColor: getCSSVar('--border'), borderWidth: 1, padding: 10, displayColors: false } },
       scales: {
-        x: {
-          grid: { color: getCSSVar('--border'), drawBorder: false },
-          ticks: { color: getCSSVar('--text-3'), font: { size: 10 }, maxTicksLimit: 8 }
-        },
-        y: {
-          grid: { color: getCSSVar('--border'), drawBorder: false },
-          ticks: { color: getCSSVar('--text-3'), font: { size: 10 } },
-          beginAtZero: true,
-        }
-      },
-      animation: { duration: 1000, easing: 'easeOutQuart' }
+        x: { grid: { color: getCSSVar('--border') }, ticks: { color: getCSSVar('--text-3'), font: { size: 10 }, maxTicksLimit: 8 } },
+        y: { grid: { color: getCSSVar('--border') }, ticks: { color: getCSSVar('--text-3'), font: { size: 10 } }, beginAtZero: true }
+      }
     }
   });
 }
@@ -516,52 +176,42 @@ function updateChartTheme() {
   chart.update();
 }
 
-// =====================================================
-// UPTIME
-// =====================================================
 function updateUptime() {
   const el = document.getElementById('uptime');
+  const infoEl = document.getElementById('first-seen-info');
   if (window.__serverStart) {
     const elapsed = Math.floor((Date.now() - window.__serverStart) / 1000);
-    const h = Math.floor(elapsed / 3600);
+    const d = Math.floor(elapsed / 86400);
+    const h = Math.floor((elapsed % 86400) / 3600);
     const m = Math.floor((elapsed % 3600) / 60);
     const s = Math.floor(elapsed % 60);
-    el.textContent = `Online · ${h}h ${m}m ${s}s`;
-  } else {
-    el.textContent = 'Online';
-  }
+    let tempo = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+    el.textContent = `Online há ${tempo}`;
+    if (window.__firstSeen && infoEl) {
+      const first = new Date(window.__firstSeen);
+      const dateStr = first.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+      infoEl.textContent = `📅 No ar desde ${dateStr}`;
+    }
+  } else { el.textContent = 'Online'; }
 }
 
 setInterval(updateUptime, 1000);
 
-// =====================================================
-// FETCH STATS
-// =====================================================
 async function loadStats() {
   try {
     const res = await fetch('/stats');
     if (!res.ok) throw new Error('stats falhou');
     const data = await res.json();
 
-    // Uptime
     if (data.uptime) {
       window.__serverStart = Date.now() - (data.uptime * 1000);
+      window.__firstSeen = data.first_seen;
       updateUptime();
     }
 
-    // Info cards
-    if (data.providers) {
-      const ativos = data.providers.filter(p => p.enabled).length;
-      document.getElementById('providers-active').textContent = ativos;
-    }
-
-    if (data.cache_count !== undefined) {
-      document.getElementById('cache-count').textContent = data.cache_count.toLocaleString('pt-BR');
-    }
-
-    if (data.requests_24h !== undefined) {
-      document.getElementById('req-count').textContent = data.requests_24h.toLocaleString('pt-BR');
-    }
+    if (data.cache_count !== undefined) document.getElementById('cache-count').textContent = data.cache_count.toLocaleString('pt-BR');
+    if (data.requests_24h !== undefined) document.getElementById('req-count').textContent = data.requests_24h.toLocaleString('pt-BR');
+    if (data.restart_count !== undefined) document.getElementById('restart-count').textContent = data.restart_count;
 
     if (data.success_rate !== undefined) {
       const el = document.getElementById('success-rate');
@@ -569,13 +219,11 @@ async function loadStats() {
       el.className = 'info-value ' + (data.success_rate >= 80 ? 'green' : data.success_rate >= 50 ? 'yellow' : '');
     }
 
-    // Chart
     if (data.chart_labels && data.chart_data) {
       if (chart) chart.destroy();
       initChart(data.chart_labels, data.chart_data);
     }
 
-    // Populares
     if (data.popular && data.popular.length > 0) {
       const list = document.getElementById('popular-list');
       list.innerHTML = '';
@@ -592,33 +240,12 @@ async function loadStats() {
     } else {
       document.getElementById('popular-list').innerHTML = '<div class="loading-text">Nenhum dado ainda</div>';
     }
-
-    // Providers
-    if (data.providers && data.providers.length > 0) {
-      const grid = document.getElementById('providers-grid');
-      grid.innerHTML = '';
-      data.providers.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'provider-card';
-        const status = p.enabled ? 'online' : 'offline';
-        div.innerHTML = `
-          <div class="provider-dot ${status}"></div>
-          <div class="provider-name">${p.display_name || p.name}</div>
-          <div class="provider-priority">P${p.priority}</div>
-        `;
-        grid.appendChild(div);
-      });
-    } else {
-      document.getElementById('providers-grid').innerHTML = '<div class="loading-text">Nenhum provider</div>';
-    }
-
   } catch (err) {
-    console.error('Erro ao carregar stats:', err.message);
+    console.error('Erro stats:', err.message);
     document.getElementById('uptime').textContent = 'Online';
   }
 }
 
-// Init
 initChart();
 loadStats();
 setInterval(loadStats, 30000);

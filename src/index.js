@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
-import fs from 'fs';
 import cors from 'cors';
 import axios from 'axios';
+import fs from 'fs';
 import { extractStream } from './orchestrator.js';
-import { getStats } from './stats.js';
+import { getStats, registerBoot } from './stats.js';
 
 const app = express();
 
@@ -35,7 +35,7 @@ const PORT = process.env.PORT || 3000;
 let warmCacheRunning = false;
 
 // =====================================================
-// ROTA RAIZ - HTML BONITO
+// ROTA RAIZ - LANDING PAGE
 // =====================================================
 app.get('/', (req, res) => {
   try {
@@ -44,6 +44,31 @@ app.get('/', (req, res) => {
     res.send(html);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao carregar landing', message: err.message });
+  }
+});
+
+// =====================================================
+// PLAYER DE TESTE (Clube da Luta)
+// =====================================================
+app.get('/teste', (req, res) => {
+  try {
+    const html = fs.readFileSync('./player-teste.html', 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('Erro ao carregar player de teste: ' + err.message);
+  }
+});
+
+// =====================================================
+// STATS (agregado, sem dados sensíveis)
+// =====================================================
+app.get('/stats', async (req, res) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -234,22 +259,13 @@ app.get('/warm-cache', async (req, res) => {
   }
 });
 
-
-
 // =====================================================
-// STATS (dados agregados, sem informações sensíveis)
+// STARTUP
 // =====================================================
-app.get('/stats', async (req, res) => {
-  try {
-    const stats = await getStats();
-    res.json(stats);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+registerBoot().catch(console.error);
 
 app.listen(PORT, () => {
   console.log(`🎬 Api-alex rodando em http://localhost:${PORT}`);
-  console.log(`🔒 CORS restritivo para: ${ALLOWED_ORIGINS.join(', ')}`);
-  console.log(`✅ Rotas sem CORS: /, /warm-cache`);
+  console.log(`🔒 CORS: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`🎬 Player teste: /teste`);
 });

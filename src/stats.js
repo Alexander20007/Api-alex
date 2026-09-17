@@ -1,11 +1,10 @@
 import { supabase } from './utils/supabase.js';
 
-const START_TIME = Date.now();
-
 export async function getStats() {
   const result = {
-    uptime: Math.floor((Date.now() - START_TIME) / 1000),
-    providers: [],
+    uptime: 0,
+    first_seen: null,
+    restart_count: 0,
     cache_count: 0,
     requests_24h: 0,
     success_rate: 0,
@@ -15,20 +14,33 @@ export async function getStats() {
   };
 
   try {
-    // 1. Providers
-    const { data: providers } = await supabase
-      .from('providers')
-      .select('name, display_name, priority, enabled')
-      .order('priority');
-    if (providers) result.providers = providers;
+    // Uptime persistente
+    const { data: status } = await supabase
+      .from('api_status')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
 
-    // 2. Cache count
+    if (status) {
+      result.first_seen = status.first_seen;
+      result.restart_count = status.restart_count;
+
+      const firstSeen = new Date(status.first_seen).getTime();
+      result.uptime = Math.floor((Date.now() - firstSeen) / 1000);
+
+      await supabase
+        .from('api_status')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', 1);
+    }
+
+    // Cache count
     const { count: cacheCount } = await supabase
       .from('cache')
       .select('*', { count: 'exact', head: true });
     if (cacheCount !== null) result.cache_count = cacheCount;
 
-    // 3. Métricas 24h
+    // Métricas 24h
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: metrics } = await supabase
       .from('metrics')
@@ -37,11 +49,9 @@ export async function getStats() {
 
     if (metrics && metrics.length > 0) {
       result.requests_24h = metrics.length;
-
       const sucessos = metrics.filter(m => m.success).length;
       result.success_rate = Math.round((sucessos / metrics.length) * 100);
 
-      // Chart: agrupa por hora
       const buckets = {};
       for (let i = 23; i >= 0; i--) {
         const h = new Date(Date.now() - i * 60 * 60 * 1000);
@@ -58,7 +68,7 @@ export async function getStats() {
       result.chart_labels = Object.keys(buckets).map(h => `${h}h`);
       result.chart_data = Object.values(buckets);
 
-      // Top 5 filmes mais pedidos (de todos os tempos, últimos 7 dias)
+      // Top 5 populares (7 dias)
       const counts = {};
       const { data: allMetrics } = await supabase
         .from('metrics')
@@ -70,20 +80,11 @@ export async function getStats() {
           counts[m.tmdb_id] = (counts[m.tmdb_id] || 0) + 1;
         });
 
-        // Pega os títulos do cache se existirem
         const top = Object.entries(counts)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5);
 
-        // Tenta buscar títulos do cache
         for (const [tmdbId, count] of top) {
-          const { data: cached } = await supabase
-            .from('cache')
-            .select('tmdb_id')
-            .eq('tmdb_id', tmdbId)
-            .limit(1)
-            .maybeSingle();
-
           result.popular.push({
             tmdb_id: tmdbId,
             title: `TMDB #${tmdbId}`,
@@ -97,4 +98,32 @@ export async function getStats() {
   }
 
   return result;
+}
+
+export async function registerBoot() {
+  try {
+    const { data: status } = await supabase
+      .from('api_status')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (status) {
+      await supabase
+        .from('api_status')
+        .update({
+          last_seen: new Date().toISOString(),
+          restart_count: (status.restart_count || 0) + 1,
+        })
+        .eq('id', 1);
+      console.log(`[STATS] Boot #${(status.restart_count || 0) + 1}`);
+    } else {
+      await supabase
+        .from('api_status')
+        .insert({ id: 1, first_seen: new Date().toISOString(), last_seen: new Date().toISOString() });
+      console.log('[STATS] Primeiro boot');
+    }
+  } catch (err) {
+    console.error('[STATS] Erro boot:', err.message);
+  }
 }
