@@ -20,7 +20,7 @@ function buildProviders(providerRows) {
   for (const row of providerRows) {
     const ProviderClass = PROVIDER_CLASSES[row.name];
     if (!ProviderClass) {
-      console.warn(`[!] Provider "${row.name}" existe no banco mas nao tem classe implementada`);
+      console.warn(`[!] Provider "${row.name}" sem classe`);
       continue;
     }
     const instance = new ProviderClass();
@@ -43,7 +43,7 @@ export async function extractStream(tmdbId, type, season, episode) {
   const startTime = Date.now();
   const attempts = [];
 
-  console.log(`[*] Checando cache: ${tmdbId} / ${type} / ${season ?? '-'} / ${episode ?? '-'}`);
+  console.log(`[*] Checando cache: ${tmdbId} / ${type}`);
   const cached = await getFromCache(tmdbId, type, season, episode);
 
   if (cached) {
@@ -53,25 +53,26 @@ export async function extractStream(tmdbId, type, season, episode) {
       provider: cached.provider_name,
       hlsUrl: cached.hls_url,
       subtitles: cached.subtitles || [],
+      cookies: cached.cookies || null,
       fromCache: true,
       attempts: [{ provider: cached.provider_name, success: true, cached: true }],
     };
   }
 
-  console.log('[*] Buscando providers no Supabase...');
+  console.log('[*] Buscando providers...');
   const providerRows = await getProviders();
 
   if (providerRows.length === 0) {
-    return { success: false, error: 'Nenhum provider ativo no banco', attempts: [] };
+    return { success: false, error: 'Nenhum provider ativo', attempts: [] };
   }
 
-  console.log(`[+] ${providerRows.length} provider(s): ${providerRows.map((p) => p.name).join(', ')}`);
+  console.log(`[+] ${providerRows.length} provider(s): ${providerRows.map(p => p.name).join(', ')}`);
   const providers = buildProviders(providerRows);
 
   for (const provider of providers) {
     const name = provider.config.name;
     const providerStart = Date.now();
-    console.log(`\n[*] Tentando ${name} (${provider.config.domain})...`);
+    console.log(`\n[*] Tentando ${name}...`);
 
     try {
       const result = await provider.extract(tmdbId, type, season, episode);
@@ -79,8 +80,12 @@ export async function extractStream(tmdbId, type, season, episode) {
 
       if (result?.hlsUrl) {
         console.log(`[+] ${name} SUCESSO em ${elapsed}ms`);
-        // TTL curto (3 minutos) porque tokens do vidsrcme expiram rapido
-        await saveToCache(tmdbId, type, season, episode, name, result.hlsUrl, result.subtitles || [], 0.05);
+        await saveToCache(
+          tmdbId, type, season, episode, name,
+          result.hlsUrl, result.subtitles || [],
+          1,                                    // TTL 1h
+          result.cookies || null                // cookies da sessão
+        );
         await logMetric(name, tmdbId, type, true, elapsed);
         attempts.push({ provider: name, success: true, elapsed_ms: elapsed });
         return {
@@ -88,6 +93,7 @@ export async function extractStream(tmdbId, type, season, episode) {
           provider: name,
           hlsUrl: result.hlsUrl,
           subtitles: result.subtitles || [],
+          cookies: result.cookies || null,
           fromCache: false,
           attempts,
         };

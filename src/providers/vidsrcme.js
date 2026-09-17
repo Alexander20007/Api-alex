@@ -31,7 +31,7 @@ export class VidSrcMeProvider extends BaseProvider {
       const url = response.url();
       if (url.includes('.m3u8') && !m3u8Url) {
         const tempo = ((Date.now() - inicio) / 1000).toFixed(1);
-        console.log(`[+] 🎯 vidsrcme M3U8 (${tempo}s): ${url.slice(0, 120)}...`);
+        console.log(`[+] vidsrcme M3U8 (${tempo}s): ${url.slice(0, 120)}...`);
         m3u8Url = url;
       }
       if ((url.includes('.vtt') || url.includes('.srt')) && !subtitles.includes(url)) {
@@ -53,63 +53,50 @@ export class VidSrcMeProvider extends BaseProvider {
         timeout: 30000,
       });
 
-      // ⏱️ Espera 20s pro player carregar (aumentado)
-      console.log('[*] vidsrcme: aguardando player carregar (20s)...');
+      console.log('[*] vidsrcme: aguardando player (20s)...');
       for (let i = 0; i < 10; i++) {
         if (m3u8Url) break;
         await page.waitForTimeout(2000);
       }
 
-      // 🖱️ Se não capturou, clica em TODOS os frames
       if (!m3u8Url) {
-        console.log('[*] vidsrcme: clicando no #bigPlay em todos os frames...');
+        console.log('[*] vidsrcme: clicando no #bigPlay...');
         const frames = page.frames();
-        console.log(`   [i] ${frames.length} frame(s) ativos`);
-
         for (const frame of frames) {
           try {
             const clicked = await frame.evaluate(() => {
               const selectors = [
-                '#bigPlay',
-                '.jw-bigplay',
-                '.jw-icon-playback',
-                'button[aria-label="Play"]',
-                'button[aria-label="play"]',
-                '[class*="play" i]',
-                'video',
+                '#bigPlay', '.jw-bigplay', '.jw-icon-playback',
+                'button[aria-label="Play"]', '[class*="play" i]', 'video',
               ];
               for (const sel of selectors) {
                 const el = document.querySelector(sel);
-                if (el) {
-                  el.click();
-                  return sel;
-                }
+                if (el) { el.click(); return sel; }
               }
               return null;
             });
-            if (clicked) {
-              console.log(`   [+] Cliquei (${clicked}) em: ${frame.url().slice(0, 60)}`);
-            }
+            if (clicked) console.log(`   [+] Cliquei (${clicked})`);
           } catch (_) {}
         }
 
-        // ⏱️ Espera ATÉ 80s pelo m3u8 (aumentado)
         console.log('[*] vidsrcme: aguardando m3u8 (até 80s)...');
         for (let i = 0; i < 40; i++) {
           if (m3u8Url) break;
           await page.waitForTimeout(2000);
-          if (i % 5 === 0) {
-            console.log(`   ... ${(i + 1) * 2}s`);
-          }
+          if (i % 5 === 0) console.log(`   ... ${(i + 1) * 2}s`);
         }
       }
 
       const tempoTotal = ((Date.now() - inicio) / 1000).toFixed(1);
 
+      const cookies = await context.cookies();
+      const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+      console.log(`[+] vidsrcme: ${cookies.length} cookies capturados`);
+
       if (m3u8Url) {
         console.log(`[+] vidsrcme: SUCESSO em ${tempoTotal}s`);
         await browser.close();
-        return { hlsUrl: m3u8Url, subtitles };
+        return { hlsUrl: m3u8Url, subtitles, cookies: cookieStr };
       }
 
       console.log(`[-] vidsrcme: m3u8 não encontrado após ${tempoTotal}s`);

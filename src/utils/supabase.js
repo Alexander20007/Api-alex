@@ -5,16 +5,13 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('[!] SUPABASE_URL ou SUPABASE_ANON_KEY nao configurados no .env');
+  console.warn('[!] SUPABASE_URL ou SUPABASE_ANON_KEY nao configurados');
 }
 
-// Node.js 20 não tem WebSocket nativo — precisa do pacote "ws"
 globalThis.WebSocket = ws;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  realtime: {
-    transport: ws,
-  },
+  realtime: { transport: ws },
 });
 
 export async function getProviders() {
@@ -23,9 +20,8 @@ export async function getProviders() {
     .select('*')
     .eq('enabled', true)
     .order('priority', { ascending: true });
-
   if (error) {
-    console.error('[Supabase] Erro ao buscar providers:', error.message);
+    console.error('[Supabase] Erro providers:', error.message);
     return [];
   }
   return data || [];
@@ -52,12 +48,11 @@ export async function getFromCache(tmdbId, type, season, episode) {
   }
 
   const { data, error } = await query.maybeSingle();
-
   if (error || !data) return null;
   return data;
 }
 
-export async function saveToCache(tmdbId, type, season, episode, providerName, hlsUrl, subtitles, ttlHours = 24) {
+export async function saveToCache(tmdbId, type, season, episode, providerName, hlsUrl, subtitles, ttlHours = 1, cookies = null) {
   const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
 
   const { error } = await supabase
@@ -71,13 +66,12 @@ export async function saveToCache(tmdbId, type, season, episode, providerName, h
       hls_url: hlsUrl,
       subtitles: subtitles || [],
       expires_at: expiresAt,
+      cookies: cookies,
     }, {
       onConflict: 'tmdb_id,type,season,episode',
     });
 
-  if (error) {
-    console.error('[Supabase] Erro ao salvar cache:', error.message);
-  }
+  if (error) console.error('[Supabase] Erro cache:', error.message);
 }
 
 export async function logMetric(providerName, tmdbId, type, success, responseTimeMs, errorMessage = null) {
@@ -91,8 +85,5 @@ export async function logMetric(providerName, tmdbId, type, success, responseTim
       response_time_ms: responseTimeMs,
       error_message: errorMessage,
     });
-
-  if (error) {
-    console.error('[Supabase] Erro ao registrar metrica:', error.message);
-  }
+  if (error) console.error('[Supabase] Erro metrica:', error.message);
 }
