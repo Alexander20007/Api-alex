@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 Watch Party — ALXmovies</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; padding: 20px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .header { text-align: center; margin-bottom: 24px; }
+  .header h1 { font-size: 28px; background: linear-gradient(135deg, #00d2ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+  .header p { color: #888; font-size: 13px; }
+  .setup-card { background: #151515; border-radius: 20px; padding: 32px; max-width: 500px; margin: 0 auto; border: 1px solid #222; }
+  .setup-card h2 { font-size: 18px; margin-bottom: 20px; text-align: center; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; }
+  .field input, .field select { width: 100%; background: #0a0a0a; border: 2px solid #2a2a2a; color: #fff; padding: 12px 16px; border-radius: 10px; font-size: 15px; }
+  .field input:focus, .field select:focus { outline: none; border-color: #00d2ff; }
+  .btn { width: 100%; background: linear-gradient(135deg, #00d2ff, #7c3aed); border: none; color: #fff; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .btn:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; background: #0a0a0a; padding: 4px; border-radius: 10px; }
+  .tab { flex: 1; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; transition: all 0.2s; }
+  .tab.active { background: #1a1a1a; color: #00d2ff; }
+  .room-view { display: none; grid-template-columns: 1fr 320px; gap: 20px; }
+  .room-view.show { display: grid; }
+  .player-area { background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
+  .player-area video { width: 100%; height: 100%; display: block; background: #000; }
+  .sidebar { background: #151515; border-radius: 16px; padding: 20px; border: 1px solid #222; display: flex; flex-direction: column; gap: 16px; max-height: 80vh; }
+  .room-code { background: #0a0a0a; border-radius: 12px; padding: 16px; text-align: center; }
+  .room-code .label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 6px; }
+  .room-code .code { font-size: 24px; font-weight: 700; font-family: 'Courier New', monospace; color: #00d2ff; letter-spacing: 2px; }
+  .room-code .copy-btn { margin-top: 10px; padding: 8px 16px; background: #1a1a1a; border: 1px solid #333; color: #fff; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .people { flex: 1; overflow-y: auto; }
+  .people h3 { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 10px; }
+  .person { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; }
+  .person-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; }
+  .person-dot.host { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+  .chat-box { border-top: 1px solid #222; padding-top: 16px; display: flex; flex-direction: column; gap: 10px; max-height: 200px; }
+  .chat-messages { flex: 1; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .chat-msg { padding: 6px 10px; background: #0a0a0a; border-radius: 8px; }
+  .chat-msg.own { background: #7c3aed; align-self: flex-end; }
+  .chat-msg .name { color: #00d2ff; font-weight: 600; margin-right: 6px; }
+  .chat-input { display: flex; gap: 6px; }
+  .chat-input input { flex: 1; background: #0a0a0a; border: 1px solid #2a2a2a; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
+  .chat-input button { background: #7c3aed; border: none; color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+  .sync-status { position: absolute; top: 12px; right: 12px; background: rgba(0, 0, 0, 0.8); padding: 6px 12px; border-radius: 20px; font-size: 11px; color: #4ade80; display: flex; align-items: center; gap: 6px; }
+  .sync-status::before { content: ''; width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #4ade80; color: #000; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 900px) { .room-view { grid-template-columns: 1fr; } .sidebar { max-height: none; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎉 Watch Party</h1>
+    <p>Assista junto com amigos, sincronizado</p>
+  </div>
+
+  <div id="setup" class="setup-card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('create')">Criar Sala</div>
+      <div class="tab" onclick="switchTab('join')">Entrar em Sala</div>
+    </div>
+
+    <div id="tabCreate">
+      <h2>Criar nova sala</h2>
+      <div class="field">
+        <label>TMDB ID</label>
+        <input id="tmdbId" type="number" placeholder="Ex: 550" value="550">
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <select id="tipo">
+          <option value="movie">🎬 Filme</option>
+          <option value="tv">📺 Série</option>
+        </select>
+      </div>
+      <div class="field" id="seasonField" style="display:none">
+        <label>Temporada / Episódio</label>
+        <div style="display: flex; gap: 8px;">
+          <input id="temporada" type="number" placeholder="Temporada" value="1">
+          <input id="episodio" type="number" placeholder="Episódio" value="1">
+        </div>
+      </div>
+      <button class="btn" id="btnCreate" onclick="criarSala()">🎬 Criar Watch Party</button>
+    </div>
+
+    <div id="tabJoin" style="display: none">
+      <h2>Entrar em uma sala</h2>
+      <div class="field">
+        <label>Código da Sala</label>
+        <input id="joinCode" type="text" placeholder="ABC123" maxlength="6" style="text-transform: uppercase;">
+      </div>
+      <div class="field">
+        <label>Seu nome</label>
+        <input id="joinName" type="text" placeholder="Como quer ser chamado?">
+      </div>
+      <button class="btn" id="btnJoin" onclick="entrarSala()">🚪 Entrar na Sala</button>
+    </div>
+  </div>
+
+  <div id="roomView" class="room-view">
+    <div class="player-area">
+      <div class="sync-status" id="syncStatus">Sincronizado</div>
+      <video id="video" controls playsinline crossorigin="anonymous"></video>
+    </div>
+    <div class="sidebar">
+      <div class="room-code">
+        <div class="label">Código da sala</div>
+        <div class="code" id="displayCode">-----</div>
+        <button class="copy-btn" onclick="copiarCodigo()">📋 Copiar código</button>
+      </div>
+      <div class="people">
+        <h3>👥 Pessoas online (<span id="peopleCount">1</span>)</h3>
+        <div id="peopleList"></div>
+      </div>
+      <div class="chat-box">
+        <h3>💬 Chat</h3>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+          <input id="chatInput" type="text" placeholder="Mensagem..." onkeypress="if(event.key==='Enter') enviarChat()">
+          <button onclick="enviarChat()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// CONFIG
+// =====================================================
+const API = 'https://api-alex-jney.onrender.com';
+const SUPABASE_URL = 'https://kmkxjxifbwnbkgecnxur.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_2juTVyejvgxwRwl6UhWdpg_mLl4Xuur';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// =====================================================
+// ESTADO
+// =====================================================
+let socket = null;
+let currentRoom = null;
+let isHost = false;
+let myName = 'Anônimo';
+let ignoreNextSync = false;
+let hls = null;
+let people = new Map();
+
+const video = document.getElementById('video');
+
+// =====================================================
+// UI HELPERS
+// =====================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.includes(tab === 'create' ? 'Criar' : 'Entrar')) t.classList.add('active');
+  });
+  document.getElementById('tabCreate').style.display = tab === 'create' ? 'block' : 'none';
+  document.getElementById('tabJoin').style.display = tab === 'join' ? 'block' : 'none';
+}
+
+document.getElementById('tipo').addEventListener('change', (e) => {
+  document.getElementById('seasonField').style.display = e.target.value === 'tv' ? 'block' : 'none';
+});
+
+function showToast(msg, cor = '#4ade80') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = cor;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function copiarCodigo() {
+  if (!currentRoom) return;
+  navigator.clipboard.writeText(currentRoom.code);
+  showToast('✅ Código copiado!');
+}
+
+// =====================================================
+// CRIAR SALA
+// =====================================================
+async function criarSala() {
+  const tmdbId = document.getElementById('tmdbId').value;
+  const tipo = document.getElementById('tipo').value;
+  const temporada = document.getElementById('temporada').value;
+  const episodio = document.getElementById('episodio').value;
+
+  if (!tmdbId) return showToast('Digite um TMDB ID', '#f87171');
+
+  const btn = document.getElementById('btnCreate');
+  btn.disabled = true;
+  btn.textContent = '⏳ Criando sala (pode demorar)...';
+
+  try {
+    const res = await fetch(`${API}/watchparty/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tmdb_id: tmdbId,
+        type: tipo,
+        season: tipo === 'tv' ? temporada : null,
+        episode: tipo === 'tv' ? episodio : null,
+        host_id: 'host_' + Math.random().toString(36).substring(2, 8),
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Erro ao criar sala');
+
+    isHost = true;
+    myName = 'Host';
+    currentRoom = data.room;
+    showToast('🎬 Sala criada!');
+    entrarNaSala(data.room);
+  } catch (err) {
+    showToast('❌ ' + err.message, '#f87171');
+    btn.disabled = false;
+    btn.textContent = '🎬 Criar Watch Party';
+  }
+}
+
+// =====================================================
+// ENTRAR EM SALA
+// =====================================================
+async function entrarSala() {
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  const name = document.getElementById('joinName').value.trim() || 'Convidado';
+
+  if (!code || code.length !== 6) return showToast('Código inválido (6 caracteres)', '#f87171');
+
+  const btn = document.getElementById('btnJoin');
+  btn.disabled = true;
+  btn.textContent = '⏳ Entrando...';
+
+  try {
+    const res = await fetch(`${API}/watchparty/room/${code}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sala não encontrada');
+
+    isHost = false;
+    myName = name;
+    currentRoom = data;
+    showToast('🚪 Entrou na sala!');
+    entrarNaSala(data);
+  } catch (err) {
+    showToast('❌ ' + err.message, '#f87171');
+    btn.disabled = false;
+    btn.textContent = '🚪 Entrar na Sala';
+  }
+}
+
+// =====================================================
+// ENTRAR NA SALA
+// =====================================================
+async function entrarNaSala(room) {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('roomView').classList.add('show');
+  document.getElementById('displayCode').textContent = room.code;
+
+  await carregarVideo(room);
+  conectarRealtime(room.code);
+
+  people.set(myName, { name: myName, isHost });
+  renderPeople();
+}
+
+// =====================================================
+// CARREGAR VÍDEO
+// =====================================================
+async function carregarVideo(room) {
+  if (!room.hls_url) {
+    showToast('Sem stream disponível', '#f87171');
+    return;
+  }
+
+  const cookiesParam = room.cookies ? `&cookies=${encodeURIComponent(room.cookies)}` : '';
+  const proxyUrl = `${API}/proxy?url=${encodeURIComponent(room.hls_url)}${cookiesParam}`;
+
+  if (Hls.isSupported()) {
+    hls = new Hls({
+      maxBufferLength: 120,
+      maxMaxBufferLength: 600,
+      maxBufferSize: 60 * 1000 * 1000,
+      backBufferLength: 90,
+    });
+    hls.loadSource(proxyUrl);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => showToast('🎬 Player pronto!'));
+    hls.on(Hls.Events.ERROR, (ev, d) => {
+      if (d.fatal) console.error('HLS erro:', d);
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = proxyUrl;
+  }
+}
+
+// =====================================================
+// SUPABASE REALTIME
+// =====================================================
+function conectarRealtime(roomCode) {
+  socket = supabase.channel(`room:${roomCode}`, {
+    config: { broadcast: { self: false } },
+  });
+
+  socket.on('broadcast', { event: 'sync' }, ({ payload }) => {
+    if (isHost) return;
+    ignoreNextSync = true;
+    switch (payload.action) {
+      case 'play': video.currentTime = payload.time; video.play(); break;
+      case 'pause': video.currentTime = payload.time; video.pause(); break;
+      case 'seek': video.currentTime = payload.time; break;
+    }
+    setTimeout(() => { ignoreNextSync = false; }, 500);
+  });
+
+  socket.on('broadcast', { event: 'chat' }, ({ payload }) => {
+    adicionarChatMsg(payload.name, payload.text, payload.name === myName);
+  });
+
+  socket.on('presence', { event: 'sync' }, () => {
+    const state = socket.presenceState();
+    people.clear();
+    Object.values(state).forEach(arr => {
+      arr.forEach(p => people.set(p.name, { name: p.name, isHost: p.isHost }));
+    });
+    renderPeople();
+  });
+
+  socket.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      await socket.track({ name: myName, isHost, online_at: new Date().toISOString() });
+      console.log('✅ Conectado ao Realtime');
+    }
+  });
+
+  video.addEventListener('play', () => {
+    if (isHost && socket && !ignoreNextSync) {
+      socket.send({ type: 'broadcast', event: 'sync', payload: { action: 'play', time: video.currentTime } });
+    }
+  });
+
+  video.addEventListener('pause', () => {
+    if (isHost && socket && !ignoreNextSync) {
+      socket.send({ type: 'broadcast', event: 'sync', payload: { action: 'pause', time: video.currentTime } });
+    }
+  });
+
+  video.addEventListener('seeked', () => {
+    if (isHost && socket && !ignoreNextSync) {
+      socket.send({ type: 'broadcast', event: 'sync', payload: { action: 'seek', time: video.currentTime } });
+    }
+  });
+}
+
+// =====================================================
+// CHAT
+// =====================================================
+function enviarChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !socket) return;
+  socket.send({ type: 'broadcast', event: 'chat', payload: { name: myName, text } });
+  adicionarChatMsg(myName, text, true);
+  input.value = '';
+}
+
+function adicionarChatMsg(name, text, own) {
+  const chat = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (own ? ' own' : '');
+  div.innerHTML = `<span class="name">${name}:</span>${text}`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// =====================================================
+// PRESENÇA
+// =====================================================
+function renderPeople() {
+  const list = document.getElementById('peopleList');
+  const count = document.getElementById('peopleCount');
+  list.innerHTML = '';
+  people.forEach((p) => {
+    const div = document.createElement('div');
+    div.className = 'person';
+    div.innerHTML = `<div class="person-dot ${p.isHost ? 'host' : ''}"></div><span>${p.name}${p.isHost ? ' 👑' : ''}</span>`;
+    list.appendChild(div);
+  });
+  count.textContent = people.size;
+}
+
+// URL param: ?room=ABC123
+const params = new URLSearchParams(window.location.search);
+const roomFromUrl = params.get('room');
+if (roomFromUrl) {
+  document.getElementById('joinCode').value = roomFromUrl.toUpperCase();
+  switchTab('join');
+}
+
+console.log('🎉 Watch Party carregado');
+</script>
+
+</body>
+</html>

@@ -5,6 +5,7 @@ import axios from 'axios';
 import fs from 'fs';
 import { extractStream } from './orchestrator.js';
 import { getStats, registerBoot } from './stats.js';
+import { createWatchRoom, getWatchRoom, closeWatchRoom, cleanupExpiredRooms } from './watchparty.js';
 
 const app = express();
 
@@ -13,7 +14,9 @@ const app = express();
 // =====================================================
 const ALLOWED_ORIGINS = [
   'https://alxmovies.netlify.app',
+  'https://novies.netlify.app',
   'http://localhost:3000',
+  'http://localhost:5173',
   'http://localhost:8080',
   'http://127.0.0.1:3000',
 ];
@@ -48,7 +51,7 @@ app.get('/', (req, res) => {
 });
 
 // =====================================================
-// PLAYER DE TESTE (Clube da Luta)
+// PLAYER DE TESTE
 // =====================================================
 app.get('/teste', (req, res) => {
   try {
@@ -56,7 +59,7 @@ app.get('/teste', (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (err) {
-    res.status(500).send('Erro ao carregar player de teste: ' + err.message);
+    res.status(500).send('Erro: ' + err.message);
   }
 });
 
@@ -111,6 +114,63 @@ app.get('/extract', corsMiddleware, async (req, res) => {
     const result = await extractStream(tmdbId, type, season, episode);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// =====================================================
+// WATCH PARTY
+// =====================================================
+app.get('/watchparty', (req, res) => {
+  try {
+    const html = fs.readFileSync('./watchparty.html', 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('Erro ao carregar watch party: ' + err.message);
+  }
+});
+
+// Criar sala
+app.post('/watchparty/create', corsMiddleware, async (req, res) => {
+  const { tmdb_id, type, season, episode, host_id } = req.body;
+
+  if (!tmdb_id) return res.status(400).json({ error: 'tmdb_id obrigatorio' });
+
+  try {
+    const room = await createWatchRoom(
+      tmdb_id,
+      type || 'movie',
+      season || null,
+      episode || null,
+      host_id || 'anonymous'
+    );
+    res.json({ success: true, room });
+  } catch (err) {
+    console.error('[WATCH-PARTY] Erro create:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Buscar sala
+app.get('/watchparty/room/:code', corsMiddleware, async (req, res) => {
+  try {
+    const room = await getWatchRoom(req.params.code);
+    if (!room) {
+      return res.status(404).json({ error: 'Sala nao encontrada ou expirada' });
+    }
+    res.json(room);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Encerrar sala
+app.delete('/watchparty/room/:code', corsMiddleware, async (req, res) => {
+  try {
+    await closeWatchRoom(req.params.code);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // =====================================================
@@ -264,8 +324,19 @@ app.get('/warm-cache', async (req, res) => {
 // =====================================================
 registerBoot().catch(console.error);
 
+// Cleanup de salas expiradas a cada 1h
+setInterval(() => {
+  cleanupExpiredRooms().catch(console.error);
+}, 60 * 60 * 1000);
+
+// Primeira limpeza após 30s
+setTimeout(() => {
+  cleanupExpiredRooms().catch(console.error);
+}, 30 * 1000);
+
 app.listen(PORT, () => {
   console.log(`🎬 Api-alex rodando em http://localhost:${PORT}`);
   console.log(`🔒 CORS: ${ALLOWED_ORIGINS.join(', ')}`);
   console.log(`🎬 Player teste: /teste`);
+  console.log(`🎉 Watch Party: /watchparty`);
 });
